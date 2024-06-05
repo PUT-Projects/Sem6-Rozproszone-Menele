@@ -26,9 +26,9 @@ extern pthread_t threadKom;
 extern int lamportClock;
 
 
-// #ifndef DEBUG
-// #define DEBUG
-// #endif
+#ifndef DEBUG
+#define DEBUG
+#endif
 
 
 

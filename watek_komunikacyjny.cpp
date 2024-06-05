@@ -21,15 +21,18 @@ void *startKomWatek(void *ptr)
 		sendPacket( 0, status.MPI_SOURCE, ACK );
 	    break;
 	    case ACK: 
-            debug("Dostałem ACK od %d, mam już %d", status.MPI_SOURCE, ackCount);
+            debug("Dostałem ACK od %d, mam już %d", status.MPI_SOURCE, ackCount + 1);
             //mutex
             pthread_mutex_lock(&lamportMutex);
             lamportClock = max( pakiet.ts, lamportClock) +1;
             pthread_mutex_unlock(&lamportMutex);
 
+            ++ackCount;
 
-	        ackCount++; /* czy potrzeba tutaj muteksa? Będzie wyścig, czy nie będzie? Zastanówcie się. */
 	    break;
+        case RELEASE:
+            debug("Dostałem RELEASE od %d", status.MPI_SOURCE);
+
 	    default:
 	    break;
         }

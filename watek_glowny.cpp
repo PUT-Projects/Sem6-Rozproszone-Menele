@@ -37,8 +37,9 @@ void mainLoop() {
                 break;
             case InSection:
                 // tutaj zapewne jakiś muteks albo zmienna warunkowa
+                debug("size: %d, ackCount: %d", size, ackCount);
                 println("Jestem w sekcji krytycznej")
-                sleep(5);
+                sleep(1);
                 //if ( perc < 25 ) {
                 debug("Perc: %d", perc);
                 println("Wychodzę z sekcji krytycznej")debug("Zmieniam stan na wysyłanie");
@@ -46,7 +47,7 @@ void mainLoop() {
                 pkt->data = perc;
                 for (int i = 0; i <= size - 1; i++)
                     if (i != rank)
-                        sendPacket(pkt, (rank + 1) % size, RELEASE);
+                        sendPacket(pkt, (i + 1) % size, RELEASE);
                 changeState(InRun);
                 free(pkt);
                 //}
