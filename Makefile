@@ -3,10 +3,10 @@ HEADERS=$(SOURCES:.c=.h)
 #FLAGS=-DDEBUG -g
 FLAGS=-g
 
-all: main tags
+all: main
 
 main: $(SOURCES) $(HEADERS) Makefile
-	mpicc $(SOURCES) $(FLAGS) -o main
+	mpicc $(SOURCES) $(FLAGS) -o main.out
 
 clear: clean
 
@@ -14,4 +14,4 @@ clean:
 	rm main a.out
 
 run: main Makefile
-	mpirun -oversubscribe -np 8 ./main
+	mpirun -oversubscribe -np 16 ./main
