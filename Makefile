@@ -1,17 +1,17 @@
-SOURCES=$(wildcard *.c)
-HEADERS=$(SOURCES:.c=.h)
+SOURCES=$(wildcard *.cpp)
+HEADERS=$(SOURCES:.cpp=.h)
 #FLAGS=-DDEBUG -g
-FLAGS=-g
+FLAGS=-g -std=c++17
 
-all: main tags
+all: build
 
-main: $(SOURCES) $(HEADERS) Makefile
-	mpicc $(SOURCES) $(FLAGS) -o main
+build: $(SOURCES) $(HEADERS) Makefile
+	mpicxx $(SOURCES) $(FLAGS) -o app
 
 clear: clean
 
 clean:
-	rm main a.out
+	rm app
 
-run: main Makefile
-	mpirun -oversubscribe -np 8 ./main
+run: build Makefile
+	mpirun -oversubscribe -np 8 ./app

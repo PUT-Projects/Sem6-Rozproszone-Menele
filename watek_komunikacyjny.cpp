@@ -34,4 +34,5 @@ void *startKomWatek(void *ptr)
 	    break;
         }
     }
+    return nullptr;
 }

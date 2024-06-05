@@ -56,7 +56,7 @@ void sendPacket(packet_t *pkt, int destination, int tag)
 {
     //przy wysyłaniu (sendPacket) pdbijać pole ts i zwiększać lokalny zegary lamporta
     int freepkt=0;
-    if (pkt==0) { pkt = malloc(sizeof(packet_t)); freepkt=1;}
+    if (pkt==0) { pkt = static_cast<packet_t *>(malloc(sizeof(packet_t))); freepkt=1;}
     pkt->src = rank;
     pkt->ts = ++lamportClock;
     MPI_Send( pkt, 1, MPI_PAKIET_T, destination, tag, MPI_COMM_WORLD);
