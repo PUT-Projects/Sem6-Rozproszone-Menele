@@ -3,7 +3,7 @@
 #include "util.h"
 #include <queue>
 
-std::string queue_to_string(std::priority_queue<Request> q)
+std::string queue_to_string(std::priority_queue<request_t> q)
 {
     std::string result = "{ ";
     while (!q.empty())
@@ -15,11 +15,11 @@ std::string queue_to_string(std::priority_queue<Request> q)
     return result;
 }
 
-void log_queue(const std::priority_queue<Request> &q)
+void log_queue(const std::priority_queue<request_t> &q)
 {
-    std::lock_guard<std::mutex> lock(queue_mutex);
+    std::lock_guard<std::mutex> lock(globals::queue_mutex);
     auto str = queue_to_string(q);
-    debug("queue: %s", str.c_str());
+    //println("queue: %s", str.c_str());
 }
 
 void handle_request(const packet_t &packet, int source)
@@ -27,51 +27,46 @@ void handle_request(const packet_t &packet, int source)
     debug("Ktoś coś prosi. A niech ma!")
 
     {
-        std::lock_guard<std::mutex> lock(queue_mutex);
-        requests.push({packet.ts, source});
+        std::lock_guard<std::mutex> lock(globals::queue_mutex);
+        globals::request_queue.push({packet.ts, source});
     }
 
-    // mutex
     update_lamport(packet);
 
-    // wysyłamy ACK
-    sendPacket(0, source, ACK);
+    send_packet(0, source, ACK);
 }
 
 void handle_ack(const packet_t &packet, int source)
 {
-    debug("Dostałem ACK od %d, mam już %d", source, ackCount + 1);
-    // mutex
-    update_lamport(packet);
+    debug("Dostałem ACK od %d, mam już %d", source, globals::ack_count + 1);
 
-    ++ackCount;
+    update_lamport(packet);
+    ++globals::ack_count;
 }
 
 void handle_release(const packet_t &packet, int source)
 {
     debug("Dostałem RELEASE od %d", source);
 
-    // mutex
     update_lamport(packet);
 
-    // usuwamy request z kolejki
-    std::lock_guard<std::mutex> lock(queue_mutex);
+    std::lock_guard<std::mutex> lock(globals::queue_mutex);
 
-    std::priority_queue<Request> temp_q;
-    while (!requests.empty())
+    std::priority_queue<request_t> temp_q;
+    while (!globals::request_queue.empty())
     {
-        if (requests.top().process_id != source)
+        if (globals::request_queue.top().process_id != source)
         {
-            temp_q.push(requests.top());
+            temp_q.push(globals::request_queue.top());
         }
-        requests.pop();
+        globals::request_queue.pop();
     }
 
-    requests.swap(temp_q);
+    globals::request_queue.swap(temp_q);
 }
 
 /* wątek komunikacyjny; zajmuje się odbiorem i reakcją na komunikaty */
-void *startKomWatek(void *ptr)
+void startKomWatek()
 {
     MPI_Status status{};
 
@@ -100,8 +95,6 @@ void *startKomWatek(void *ptr)
             break;
         }
 
-        log_queue(requests);
+        log_queue(globals::request_queue);
     }
-
-    return nullptr;
 }

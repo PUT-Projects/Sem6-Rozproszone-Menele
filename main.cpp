@@ -1,4 +1,5 @@
 /* w main.h także makra println oraz debug -  z kolorkami! */
+#include <thread>
 #include "main.h"
 #include "watek_glowny.h"
 #include "watek_komunikacyjny.h"
@@ -8,12 +9,10 @@
  * Zwróćcie uwagę, że każdy proces ma osobą pamięć, ale w ramach jednego
  * procesu wątki współdzielą zmienne - więc dostęp do nich powinien
  * być obwarowany muteksami. Rank i size akurat są write-once, więc nie trzeba,
- * ale zob util.c oraz util.h - zmienną state_t state i funkcję changeState
+ * ale zob util.c oraz util.h - zmienną state_t state i funkcję change_state
  *
  */
-int rank, size;
-int ackCount = 0;
-int lamportClock = 0;
+
 /* 
  * Każdy proces ma dwa wątki - główny i komunikacyjny
  * w plikach, odpowiednio, watek_glowny.c oraz (siurpryza) watek_komunikacyjny.c
@@ -23,12 +22,12 @@ int lamportClock = 0;
 
 pthread_t threadKom;
 
-void finalizuj()
+void finalize(std::thread& comm_thread)
 {
     pthread_mutex_destroy( &stateMut);
     /* Czekamy, aż wątek potomny się zakończy */
     println("czekam na wątek \"komunikacyjny\"\n" );
-    pthread_join(threadKom,NULL);
+    comm_thread.join();
     MPI_Type_free(&MPI_PAKIET_T);
     MPI_Finalize();
 }
@@ -64,26 +63,21 @@ int main(int argc, char **argv)
     int provided;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
     check_thread_support(provided);
-    /* zob. util.c oraz util.h */
-    inicjuj_typ_pakietu(); // tworzy typ pakietu
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    srand(rank);
-    /* startKomWatek w watek_komunikacyjny.c 
-     * w vi najedź kursorem na nazwę pliku i wciśnij klawisze gf
-     * powrót po wciśnięciu ctrl+6
-     * */
-    pthread_create( &threadKom, NULL, startKomWatek , 0);
 
-    /* mainLoop w watek_glowny.c 
-     * w vi najedź kursorem na nazwę pliku i wciśnij klawisze gf
-     * powrót po wciśnięciu ctrl+6
-     * */
-    mainLoop(); // możesz także wcisnąć ctrl-] na nazwie funkcji
-		// działa, bo używamy ctags (zob Makefile)
-		// jak nie działa, wpisz set tags=./tags :)
-    
-    finalizuj();
+    inicjuj_typ_pakietu(); 
+    MPI_Comm_size(MPI_COMM_WORLD, &globals::size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &globals::rank);
+    srand(globals::rank);
+    globals::lamport_clock = globals::rank;
+    globals::guides_count = 1;
+    globals::guides_capacity = 1;
+    globals::group_size = 3;
+
+    std::thread comm_thread(startKomWatek);
+
+    mainLoop(); 
+
+    finalize(comm_thread);
     return 0;
 }
 

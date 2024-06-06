@@ -56,9 +56,9 @@ void inicjuj_typ_pakietu()
 }
 
 /* opis patrz util.h */
-void sendPacket(packet_t *pkt, int destination, int tag)
+void send_packet(packet_t *pkt, int destination, int tag)
 {
-    // przy wysyłaniu (sendPacket) pdbijać pole ts i zwiększać lokalny zegary lamporta
+    // przy wysyłaniu (send_packet) pdbijać pole ts i zwiększać lokalny zegary lamporta
     bool freepkt = false;
     if (pkt == 0)
     {
@@ -66,8 +66,8 @@ void sendPacket(packet_t *pkt, int destination, int tag)
         freepkt = true;
     }
 
-    pkt->src = rank;
-    pkt->ts = ++lamportClock;
+    pkt->src = globals::rank;
+    pkt->ts = ++globals::lamport_clock;
     MPI_Send(pkt, 1, MPI_PAKIET_T, destination, tag, MPI_COMM_WORLD);
     debug("Wysyłam %s do %d\n", tag2string(tag), destination);
 
@@ -77,7 +77,7 @@ void sendPacket(packet_t *pkt, int destination, int tag)
     }
 }
 
-void changeState(state_t newState)
+void change_state(state_t newState)
 {
     pthread_mutex_lock(&stateMut);
     if (stan == InFinish)
@@ -91,13 +91,13 @@ void changeState(state_t newState)
 
 void update_lamport(const packet_t& pkt)
 {
-    std::lock_guard<std::mutex> lock(lamport_mutex);
+    std::lock_guard<std::mutex> lock(globals::lamport_mutex);
 
-    lamportClock = std::max(pkt.ts, lamportClock) + 1;
+    globals::lamport_clock = std::max(pkt.ts, globals::lamport_clock) + 1;
 }
 
 void increment_lamport()
 {
-    std::lock_guard<std::mutex> lock(lamport_mutex);
-    ++lamportClock;
+    std::lock_guard<std::mutex> lock(globals::lamport_mutex);
+    ++globals::lamport_clock;
 }

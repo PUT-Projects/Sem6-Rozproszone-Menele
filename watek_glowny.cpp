@@ -1,15 +1,24 @@
 #include "main.h"
 #include "watek_glowny.h"
+#include "request_t.hpp"
+#include "globals.hpp"
+#include <thread>
+#include <chrono>
+#include <queue>
+#include <mutex>
 
-bool good_position_in_queue(int max) {
-    std::priority_queue<Request> temp_q;
+bool good_position_in_queue(int max)
+{
+    std::priority_queue<request_t> temp_q;
     {
-        std::lock_guard<std::mutex> lock(queue_mutex);
-        temp_q = requests;
+        std::lock_guard<std::mutex> lock(globals::queue_mutex);
+        temp_q = globals::request_queue;
     }
 
-    for (int i = 0; i < max && !temp_q.empty(); ++i) {
-        if (temp_q.top().process_id == rank) {
+    for (int i = 0; i < max && !temp_q.empty(); ++i)
+    {
+        if (temp_q.top().process_id == globals::rank)
+        {
             return true;
         }
         temp_q.pop();
@@ -18,56 +27,73 @@ bool good_position_in_queue(int max) {
     return false;
 }
 
-void mainLoop() {
-    srandom(rank);
+int get_queue_size()
+{
+    std::lock_guard<std::mutex> lock(globals::queue_mutex);
+    return globals::request_queue.size();
+}
+
+void mainLoop()
+{
+    srandom(globals::rank);
     int tag;
     int perc;
 
-    while (stan != InFinish) {
-        switch (stan) {
-            case InRun:
-                perc = random() % 100;
-                if (perc < 25) { debug("Perc: %d", perc);
-                    //println("Ubiegam się o sekcję krytyczną")debug("Zmieniam stan na wysyłanie");
-                    auto pkt = new packet_t;
-                    pkt->data = perc;
-                    ackCount = 0;
-                    for (int i = 0; i <= size - 1; ++i) {
-                        //if (i != rank)
-                            sendPacket(pkt, (rank + i) % size, REQUEST);
-                    }
-                    changeState(InWant); 
-
-                    free(pkt);
-                }
-                debug("Skończyłem myśleć");
-                break;
-            case InWant:
-                //println("Czekam na wejście do sekcji krytycznej")
-
-                if (ackCount == size && good_position_in_queue(1)) {
-                    changeState(InSection);
-                }
-                break;
-            case InSection:
-                // tutaj zapewne jakiś muteks albo zmienna warunkowa
-                debug("size: %d, ackCount: %d", size, ackCount);
-                println("Jestem w sekcji krytycznej")
-                sleep(1);
-                //if ( perc < 25 ) {
+    while (stan != InFinish)
+    {
+        switch (stan)
+        {
+        case InRun:
+            perc = random() % 100;
+            if (perc < 95)
+            {
                 debug("Perc: %d", perc);
-                println("Wychodzę z sekcji krytycznej")debug("Zmieniam stan na wysyłanie");
-                auto pkt = new packet_t;
-                pkt->data = perc;
-                for (int i = 0; i <= size - 1; i++) {
-                    sendPacket(pkt, (rank + i) % size, RELEASE);
+                // println("Ubiegam się o sekcję krytyczną")debug("Zmieniam stan na wysyłanie");
+                auto pkt = new packet_t{.data = perc};
+                globals::ack_count = 0;
+                for (int i = 0; i <= globals::size - 1; ++i)
+                {
+                    // if (i != globals::rank)
+                    send_packet(pkt, (globals::rank + i) % globals::size, REQUEST);
                 }
+                change_state(InWant);
 
-                changeState(InRun);
                 delete pkt;
-                //}
-                break;
+            }
+            debug("Skończyłem myśleć");
+            break;
+        case InWant:
+            println("Czekam na potwierdzenia");
 
+            if (globals::ack_count == globals::size && good_position_in_queue(globals::group_size))
+            {   
+                println("Czekam na pozostalych uczestników wycieczki...");
+                while (get_queue_size() < globals::group_size) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                }
+                println("Wszyscy są gotowi, wchodzę do sekcji krytycznej!");
+                change_state(InSection);
+            }
+            break;
+        case InSection:
+            // tutaj zapewne jakiś muteks albo zmienna warunkowa
+            debug("size: %d, ack_count: %d", globals::size, globals::ack_count);
+            println("Jestem w sekcji krytycznej")
+                sleep(1);
+            // if ( perc < 25 ) {
+            debug("Perc: %d", perc);
+            println("Wychodzę z sekcji krytycznej") debug("Zmieniam stan na wysyłanie");
+            auto pkt = new packet_t{.data = perc};
+
+            for (int i = 0; i <= globals::size - 1; ++i)
+            {
+                send_packet(pkt, (globals::rank + i) % globals::size, RELEASE);
+            }
+
+            change_state(InRun);
+            delete pkt;
+            //}
+            break;
         }
         sleep(SEC_IN_STATE);
     }

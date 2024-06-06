@@ -24,14 +24,14 @@ extern MPI_Datatype MPI_PAKIET_T;
 void inicjuj_typ_pakietu();
 
 /* wysyłanie pakietu, skrót: wskaźnik do pakietu (0 oznacza stwórz pusty pakiet), do kogo, z jakim typem */
-void sendPacket(packet_t* pkt, int destination, int tag);
+void send_packet(packet_t* pkt, int destination, int tag);
 
 typedef enum {InRun, InMonitor, InWant, InSection, InFinish} state_t;
 extern state_t stan;
 extern pthread_mutex_t stateMut;
 extern pthread_mutex_t lamportMutex;
 /* zmiana stanu, obwarowana muteksem */
-void changeState( state_t );
+void change_state( state_t );
 void update_lamport(const packet_t& pkt);
 void increment_lamport();
 #endif
