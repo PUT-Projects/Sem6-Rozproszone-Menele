@@ -1,6 +1,23 @@
 #include "main.h"
 #include "watek_glowny.h"
 
+bool good_position_in_queue(int max) {
+    std::priority_queue<Request> temp_q;
+    {
+        std::lock_guard<std::mutex> lock(queueMutex);
+        temp_q = requests;
+    }
+
+    for (int i = 0; i < max && !temp_q.empty(); i++) {
+        if (temp_q.top().process_id == rank) {
+            return true;
+        }
+        temp_q.pop();
+    }
+
+    return false;
+}
+
 void mainLoop() {
     srandom(rank);
     int tag;
@@ -15,25 +32,22 @@ void mainLoop() {
                     packet_t *pkt = static_cast<packet_t *>(malloc(sizeof(packet_t)));
                     pkt->data = perc;
                     ackCount = 0;
-                    for (int i = 0; i <= size - 1; i++)
-                        if (i != rank)
+                    for (int i = 0; i <= size - 1; i++) {
+                        //if (i != rank)
                             sendPacket(pkt, i, REQUEST);
-                    changeState(InWant); // w VI naciśnij ctrl-] na nazwie funkcji, ctrl+^ żeby wrócić
-                    // :w żeby zapisać, jeżeli narzeka że w pliku są zmiany
-                    // ewentualnie wciśnij ctrl+w ] (trzymasz ctrl i potem najpierw w, potem ]
-                    // między okienkami skaczesz ctrl+w i strzałki, albo ctrl+ww
-                    // okienko zamyka się :q
-                    // ZOB. regułę tags: w Makefile (naciśnij gf gdy kursor jest na nazwie pliku)
+                    }
+                    changeState(InWant); 
+
                     free(pkt);
-                } // a skoro już jesteśmy przy komendach vi, najedź kursorem na } i wciśnij %  (niestety głupieje przy komentarzach :( )
+                }
                 debug("Skończyłem myśleć");
                 break;
             case InWant:
                 println("Czekam na wejście do sekcji krytycznej")
-                // tutaj zapewne jakiś semafor albo zmienna warunkowa
-                // bo aktywne czekanie jest BUE
-                if (ackCount == size - 1)
+
+                if (ackCount == size && good_position_in_queue(2)) {
                     changeState(InSection);
+                }
                 break;
             case InSection:
                 // tutaj zapewne jakiś muteks albo zmienna warunkowa

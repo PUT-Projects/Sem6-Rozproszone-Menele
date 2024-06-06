@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <cstring>
 #include <pthread.h>
+#include <mutex>
+#include <queue>
 
 #include "util.h"
 /* boolean */
@@ -25,9 +27,22 @@ extern pthread_t threadKom;
 
 extern int lamportClock;
 
+struct Request
+{
+    int timestamp;
+    int process_id;
+
+    bool operator<(const Request &a) const
+    {
+        return timestamp == a.timestamp ? process_id < a.process_id : timestamp < a.timestamp;
+    }
+};
+
+inline std::mutex queueMutex{};
+inline std::priority_queue<Request> requests{};
 
 #ifndef DEBUG
-#define DEBUG
+//#define DEBUG
 #endif
 
 
