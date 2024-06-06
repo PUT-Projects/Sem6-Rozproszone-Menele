@@ -1,14 +1,16 @@
 #include "main.h"
 #include "util.h"
+#include <mpi.h>
+
 MPI_Datatype MPI_PAKIET_T;
 
-/* 
+/*
  * w util.h extern state_t stan (czyli zapowiedź, że gdzieś tam jest definicja
  * tutaj w util.c state_t stan (czyli faktyczna definicja)
  */
-state_t stan=InRun;
+state_t stan = InRun;
 
-/* zamek wokół zmiennej współdzielonej między wątkami. 
+/* zamek wokół zmiennej współdzielonej między wątkami.
  * Zwróćcie uwagę, że każdy proces ma osobą pamięć, ale w ramach jednego
  * procesu wątki współdzielą zmienne - więc dostęp do nich powinien
  * być obwarowany muteksami
@@ -16,21 +18,23 @@ state_t stan=InRun;
 pthread_mutex_t stateMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t lamportMutex = PTHREAD_MUTEX_INITIALIZER;
 
-struct tagNames_t{
+struct tagNames_t
+{
     const char *name;
     int tag;
-} tagNames[] = { { "pakiet aplikacyjny", APP_PKT }, { "finish", FINISH}, 
-                { "potwierdzenie", ACK}, {"prośbę o sekcję krytyczną", REQUEST}, {"zwolnienie sekcji krytycznej", RELEASE} };
+} tagNames[] = {{"pakiet aplikacyjny", APP_PKT}, {"finish", FINISH}, {"potwierdzenie", ACK}, {"prośbę o sekcję krytyczną", REQUEST}, {"zwolnienie sekcji krytycznej", RELEASE}};
 
-const char *const tag2string( int tag )
+const char *const tag2string(int tag)
 {
-    for (int i=0; i <sizeof(tagNames)/sizeof(struct tagNames_t);i++) {
-	if ( tagNames[i].tag == tag )  return tagNames[i].name;
+    for (int i = 0; i < sizeof(tagNames) / sizeof(struct tagNames_t); i++)
+    {
+        if (tagNames[i].tag == tag)
+            return tagNames[i].name;
     }
     return "<unknown>";
 }
 /* tworzy typ MPI_PAKIET_T
-*/
+ */
 void inicjuj_typ_pakietu()
 {
     /* Stworzenie typu */
@@ -38,10 +42,10 @@ void inicjuj_typ_pakietu()
        brzydzimy się czymś w rodzaju MPI_Send(&typ, sizeof(pakiet_t), MPI_BYTE....
     */
     /* sklejone z stackoverflow */
-    int       blocklengths[NITEMS] = {1,1,1};
+    int blocklengths[NITEMS] = {1, 1, 1};
     MPI_Datatype typy[NITEMS] = {MPI_INT, MPI_INT, MPI_INT};
 
-    MPI_Aint     offsets[NITEMS]; 
+    MPI_Aint offsets[NITEMS];
     offsets[0] = offsetof(packet_t, ts);
     offsets[1] = offsetof(packet_t, src);
     offsets[2] = offsetof(packet_t, data);
@@ -54,23 +58,46 @@ void inicjuj_typ_pakietu()
 /* opis patrz util.h */
 void sendPacket(packet_t *pkt, int destination, int tag)
 {
-    //przy wysyłaniu (sendPacket) pdbijać pole ts i zwiększać lokalny zegary lamporta
-    int freepkt=0;
-    if (pkt==0) { pkt = static_cast<packet_t *>(malloc(sizeof(packet_t))); freepkt=1;}
+    // przy wysyłaniu (sendPacket) pdbijać pole ts i zwiększać lokalny zegary lamporta
+    bool freepkt = false;
+    if (pkt == 0)
+    {
+        pkt = new packet_t;
+        freepkt = true;
+    }
+
     pkt->src = rank;
     pkt->ts = ++lamportClock;
-    MPI_Send( pkt, 1, MPI_PAKIET_T, destination, tag, MPI_COMM_WORLD);
-    debug("Wysyłam %s do %d\n", tag2string( tag), destination);
-    if (freepkt) free(pkt);
+    MPI_Send(pkt, 1, MPI_PAKIET_T, destination, tag, MPI_COMM_WORLD);
+    debug("Wysyłam %s do %d\n", tag2string(tag), destination);
+
+    if (freepkt)
+    {
+        delete pkt;
+    }
 }
 
-void changeState( state_t newState )
+void changeState(state_t newState)
 {
-    pthread_mutex_lock( &stateMut );
-    if (stan==InFinish) { 
-	pthread_mutex_unlock( &stateMut );
+    pthread_mutex_lock(&stateMut);
+    if (stan == InFinish)
+    {
+        pthread_mutex_unlock(&stateMut);
         return;
     }
     stan = newState;
-    pthread_mutex_unlock( &stateMut );
+    pthread_mutex_unlock(&stateMut);
+}
+
+void update_lamport(const packet_t& pkt)
+{
+    std::lock_guard<std::mutex> lock(lamport_mutex);
+
+    lamportClock = std::max(pkt.ts, lamportClock) + 1;
+}
+
+void increment_lamport()
+{
+    std::lock_guard<std::mutex> lock(lamport_mutex);
+    ++lamportClock;
 }

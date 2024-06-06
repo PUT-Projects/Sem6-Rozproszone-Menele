@@ -64,11 +64,11 @@ int main(int argc, char **argv)
     int provided;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
     check_thread_support(provided);
-    srand(rank);
     /* zob. util.c oraz util.h */
     inicjuj_typ_pakietu(); // tworzy typ pakietu
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    srand(rank);
     /* startKomWatek w watek_komunikacyjny.c 
      * w vi najedź kursorem na nazwę pliku i wciśnij klawisze gf
      * powrót po wciśnięciu ctrl+6

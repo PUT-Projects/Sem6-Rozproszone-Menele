@@ -32,13 +32,13 @@ struct Request
     int timestamp;
     int process_id;
 
-    bool operator<(const Request &a) const
-    {
-        return timestamp == a.timestamp ? process_id < a.process_id : timestamp < a.timestamp;
+    friend bool operator<(const Request &a, const Request &b) {
+        return a.timestamp == b.timestamp ? a.process_id >= b.process_id : a.timestamp >= b.timestamp;
     }
 };
 
-inline std::mutex queueMutex{};
+inline std::mutex lamport_mutex{};
+inline std::mutex queue_mutex{};
 inline std::priority_queue<Request> requests{};
 
 #ifndef DEBUG
