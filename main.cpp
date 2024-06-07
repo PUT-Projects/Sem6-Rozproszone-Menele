@@ -1,8 +1,11 @@
 /* w main.h także makra println oraz debug -  z kolorkami! */
 #include <thread>
-#include "main.h"
-#include "watek_glowny.h"
-#include "watek_komunikacyjny.h"
+#include "main.hpp"
+#include "utils.hpp"
+#include "main_thread.hpp"
+#include "background_thread.hpp"
+#include <map>
+#include <string_view>
 
 /*
  * W main.h extern int rank (zapowiedź) w main.c int rank (definicja)
@@ -13,71 +16,111 @@
  *
  */
 
-/* 
+/*
  * Każdy proces ma dwa wątki - główny i komunikacyjny
- * w plikach, odpowiednio, watek_glowny.c oraz (siurpryza) watek_komunikacyjny.c
+ * w plikach, odpowiednio, main_thread.c oraz (siurpryza) background_thread.c
  *
  *
  */
-
-pthread_t threadKom;
-
-void finalize(std::thread& comm_thread)
+namespace
 {
-    pthread_mutex_destroy( &stateMut);
-    /* Czekamy, aż wątek potomny się zakończy */
-    println("czekam na wątek \"komunikacyjny\"\n" );
-    comm_thread.join();
-    MPI_Type_free(&MPI_PAKIET_T);
-    MPI_Finalize();
-}
+    void finalize(std::thread &comm_thread)
+    {
+        println("czekam na wątek \"komunikacyjny\"\n");
+        comm_thread.join();
+        MPI_Type_free(&app::MPI_PAKIET_T);
+        MPI_Finalize();
+    }
 
-void check_thread_support(int provided)
-{
-    printf("THREAD SUPPORT: chcemy %d. Co otrzymamy?\n", provided);
-    switch (provided) {
-        case MPI_THREAD_SINGLE: 
+    void check_thread_support(int provided)
+    {
+        printf("THREAD SUPPORT: chcemy %d. Co otrzymamy?\n", provided);
+        switch (provided)
+        {
+        case MPI_THREAD_SINGLE:
             printf("Brak wsparcia dla wątków, kończę\n");
             /* Nie ma co, trzeba wychodzić */
-	    fprintf(stderr, "Brak wystarczającego wsparcia dla wątków - wychodzę!\n");
-	    MPI_Finalize();
-	    exit(-1);
-	    break;
-        case MPI_THREAD_FUNNELED: 
+            fprintf(stderr, "Brak wystarczającego wsparcia dla wątków - wychodzę!\n");
+            MPI_Finalize();
+            exit(-1);
+            break;
+        case MPI_THREAD_FUNNELED:
             printf("tylko te wątki, ktore wykonaly mpi_init_thread mogą wykonać wołania do biblioteki mpi\n");
-	    break;
-        case MPI_THREAD_SERIALIZED: 
+            break;
+        case MPI_THREAD_SERIALIZED:
             /* Potrzebne zamki wokół wywołań biblioteki MPI */
             printf("tylko jeden watek naraz może wykonać wołania do biblioteki MPI\n");
-	    break;
-        case MPI_THREAD_MULTIPLE: printf("Pełne wsparcie dla wątków\n"); /* tego chcemy. Wszystkie inne powodują problemy */
-	    break;
-        default: printf("Nikt nic nie wie\n");
+            break;
+        case MPI_THREAD_MULTIPLE:
+            printf("Pełne wsparcie dla wątków\n"); /* tego chcemy. Wszystkie inne powodują problemy */
+            break;
+        default:
+            printf("Nikt nic nie wie\n");
+        }
     }
+
+    bool is_number(std::string_view sv)
+    {
+        return !sv.empty() && sv.find_first_not_of("0123456789") == std::string::npos;
+    }
+
+    std::map<std::string_view, int> parse_args(int argc, char *argv[])
+    {
+        std::map<std::string_view, int> args = {
+            {"-p", 1},
+            {"-g", 2}
+        };
+
+        for (int i = 1; i < argc; i += 2)
+        {
+            if (is_number(argv[i + 1]))
+            {
+                args[argv[i]] = std::stoi(argv[i + 1]);
+            }
+            else
+            {
+                println("Argument %s nie jest liczbą", argv[i + 1]);
+                exit(1);
+            }
+        }
+        return args;
+    }
+
+    void print_configuration()
+    {
+        std::cout << "Konfiguracja:\n";
+        std::cout << " - liczba przewodników: " << app::globals::guides_capacity << "\n";
+        std::cout << " - rozmiar grupy: " << app::globals::group_size << "\n";
+        std::cout << " - liczba procesów: " << app::globals::size << "\n";
+    }
+
 }
 
-
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
-    MPI_Status status;
     int provided;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
     check_thread_support(provided);
 
-    inicjuj_typ_pakietu(); 
-    MPI_Comm_size(MPI_COMM_WORLD, &globals::size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &globals::rank);
-    srand(globals::rank);
-    globals::lamport_clock = globals::rank;
-    globals::guides_count = 1;
-    globals::guides_capacity = 1;
-    globals::group_size = 3;
+    app::initialize_packet_type();
+    MPI_Comm_size(MPI_COMM_WORLD, &app::globals::size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &app::globals::rank);
+    srand(app::globals::rank);
 
-    std::thread comm_thread(startKomWatek);
+    auto args = parse_args(argc, argv);
 
-    mainLoop(); 
+    app::globals::lamport_clock = 0; // app::globals::rank;
+    app::globals::guides_capacity = args["-p"];
+    app::globals::guides_count = app::globals::guides_capacity;
+
+    app::globals::group_size = args["-g"];
+
+    if (app::globals::rank == 0) print_configuration();
+
+    std::thread comm_thread(app::background_thread);
+
+    app::main_loop();
 
     finalize(comm_thread);
     return 0;
 }
-

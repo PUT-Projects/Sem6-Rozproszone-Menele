@@ -1,16 +1,14 @@
-#ifndef MAINH
-#define MAINH
+#ifndef APP_MAIN_HPP
+#define APP_MAIN_HPP
 #include <mpi.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstddef>
 #include <unistd.h>
 #include <cstring>
-#include <mutex>
-#include <queue>
-#include "request_t.hpp"
+
 #include "globals.hpp"
-#include "util.h"
+
 /* boolean */
 #define TRUE 1
 #define FALSE 0
@@ -27,11 +25,11 @@
    DEBUG, kiedy DEBUG niezdefiniowane działa jak instrukcja pusta
 
    używa się dokładnie jak printfa, tyle, że dodaje kolorków i automatycznie
-   wyświetla globals::rank
+   wyświetla ::app::globals::rank
 
-   w związku z tym, zmienna "globals::rank" musi istnieć.
+   w związku z tym, zmienna "::app::globals::rank" musi istnieć.
 
-   w printfie: definicja znaku specjalnego "%c[%d;%dm [%d]" escape[styl bold/normal;kolor [globals::RANK]
+   w printfie: definicja znaku specjalnego "%c[%d;%dm [%d]" escape[styl bold/normal;kolor [::app::globals::RANK]
                                            FORMAT:argumenty doklejone z wywołania debug poprzez __VA_ARGS__
                        "%c[%d;%dm"       wyczyszczenie atrybutów    27,0,37
                                             UWAGA:
@@ -42,13 +40,13 @@
 
 */
 #ifdef DEBUG
-#define debug(FORMAT, ...) printf("%c[%d;%dm [P:%d;L:%d]: " FORMAT "%c[%d;%dm\n", 27, (1 + (globals::rank / 7)) % 2, 31 + (6 + globals::rank) % 7, globals::rank, globals::lamport_clock, ##__VA_ARGS__, 27, 0, 37);
+#define debug(FORMAT, ...) printf("%c[%d;%dm [P:%d;L:%d]: " FORMAT "%c[%d;%dm\n", 27, (1 + (::app::globals::rank / 7)) % 2, 31 + (6 + ::app::globals::rank) % 7, ::app::globals::rank, ::app::globals::lamport_clock, ##__VA_ARGS__, 27, 0, 37);
 #else
 #define debug(...) ;
 #endif
 
 // makro println - to samo co debug, ale wyświetla się zawsze
-// #define println(FORMAT,...) printf("%c[%d;%dm [%d]: " FORMAT "%c[%d;%dm\n",  27, (1+(globals::rank/7))%2, 31+(6+globals::rank)%7, globals::rank, ##__VA_ARGS__, 27,0,37);
-#define println(FORMAT, ...) printf("%c[%d;%dm [P:%d;L:%d]: " FORMAT "%c[%d;%dm\n", 27, (1 + (globals::rank / 7)) % 2, 31 + (6 + globals::rank) % 7, globals::rank, globals::lamport_clock, ##__VA_ARGS__, 27, 0, 37);
+// #define println(FORMAT,...) printf("%c[%d;%dm [%d]: " FORMAT "%c[%d;%dm\n",  27, (1+(::app::globals::rank/7))%2, 31+(6+::app::globals::rank)%7, ::app::globals::rank, ##__VA_ARGS__, 27,0,37);
+#define println(FORMAT, ...) printf("%c[%d;%dm [P:%d;L:%d]: " FORMAT "%c[%d;%dm\n", 27, (1 + (::app::globals::rank / 7)) % 2, 31 + (6 + ::app::globals::rank) % 7, ::app::globals::rank, ::app::globals::lamport_clock, ##__VA_ARGS__, 27, 0, 37);
 
 #endif
