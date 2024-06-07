@@ -1,27 +1,14 @@
 /* w main.h także makra println oraz debug -  z kolorkami! */
-#include <thread>
 #include "main.hpp"
 #include "utils.hpp"
 #include "main_thread.hpp"
 #include "background_thread.hpp"
-#include <map>
+#include <iostream>
 #include <string_view>
+#include <thread>
+#include <chrono>
+#include <map>
 
-/*
- * W main.h extern int rank (zapowiedź) w main.c int rank (definicja)
- * Zwróćcie uwagę, że każdy proces ma osobą pamięć, ale w ramach jednego
- * procesu wątki współdzielą zmienne - więc dostęp do nich powinien
- * być obwarowany muteksami. Rank i size akurat są write-once, więc nie trzeba,
- * ale zob util.c oraz util.h - zmienną state_t state i funkcję change_state
- *
- */
-
-/*
- * Każdy proces ma dwa wątki - główny i komunikacyjny
- * w plikach, odpowiednio, main_thread.c oraz (siurpryza) background_thread.c
- *
- *
- */
 namespace
 {
     void finalize(std::thread &comm_thread)
@@ -89,9 +76,9 @@ namespace
     void print_configuration()
     {
         std::cout << "Konfiguracja:\n";
-        std::cout << " - liczba przewodników: " << app::globals::guides_capacity << "\n";
-        std::cout << " - rozmiar grupy: " << app::globals::group_size << "\n";
         std::cout << " - liczba procesów: " << app::globals::size << "\n";
+        std::cout << " - liczba przewodników: " << app::globals::guides_capacity << "\n";
+        std::cout << " - rozmiar grupy: " << app::globals::group_size << "\n" << std::endl;
     }
 
 }
@@ -115,7 +102,9 @@ int main(int argc, char *argv[])
 
     app::globals::group_size = args["-g"];
 
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     if (app::globals::rank == 0) print_configuration();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     std::thread comm_thread(app::background_thread);
 
