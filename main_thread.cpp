@@ -103,10 +103,18 @@ namespace
         }
 
         app::packet_t empty_pack{};
+        std::lock_guard<std::mutex> lock(app::globals::send_mutex);
         for (int i = 0; i <= app::globals::size - 1; ++i)
         {
             app::send_packet(&empty_pack, i, RELEASE);
         }
+    }
+
+    bool verify_guides_and_queue_size()
+    {
+        std::scoped_lock lock{app::globals::queue_mutex, app::globals::guides_mutex};
+
+        return app::globals::request_queue.size() >= app::globals::group_size && app::globals::guides_count > 0;
     }
 }
 
@@ -123,13 +131,13 @@ namespace app
             {
             case InRun:
                 perc = random() % 100;
-                if (perc < 80)
+                if (perc < 95)
                 {
                     debug("Perc: %d", perc);
                     // println("Ubiegam się o sekcję krytyczną")debug("Zmieniam stan na wysyłanie");
-                    auto pkt = new packet_t{.data = perc};
+                    auto pkt = new packet_t{};
                     globals::ack_count = 0;
-
+                    std::lock_guard<std::mutex> lock(app::globals::send_mutex);
                     for (int i = 0; i <= globals::size - 1; ++i)
                     {
                         send_packet(pkt, i, REQUEST);
@@ -148,17 +156,9 @@ namespace app
 
                 while (true)
                 {
-
-                    int size = get_queue_size();
-                    if (get_guides_count() <= 0)
+                    if (verify_guides_and_queue_size())
                     {
-                        // println("Brakuje przewodników!");
-                        std::this_thread::sleep_for(std::chrono::seconds(SEC_IN_STATE));
-                        continue;
-                    }
-                    if (size >= globals::group_size)
-                    {
-                        // log_queue();
+                       // log_queue();
                         bool am_i_in_group = good_position_in_queue(globals::group_size);
 
                         start_new_group();
@@ -171,9 +171,12 @@ namespace app
                             std::this_thread::sleep_for(std::chrono::seconds(SEC_IN_STATE));
                             break;
                         }
-                        // log_queue();
+                        else 
+                        {
+                        }
+                      //   log_queue();
                     }
-                    try_release_the_awaiting();
+                            try_release_the_awaiting();
                 }
 
                 change_state(InSection);

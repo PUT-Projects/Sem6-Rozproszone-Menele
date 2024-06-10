@@ -18,7 +18,7 @@
 #define ROOT 0
 
 #ifndef DEBUG
-// #define DEBUG
+ //#define DEBUG
 #endif
 
 /* macro debug - działa jak printf, kiedy zdefiniowano

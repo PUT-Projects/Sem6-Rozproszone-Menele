@@ -25,6 +25,7 @@ namespace app::globals
 
     inline std::mutex guides_mutex{};
     inline std::mutex awaiting_releases_mutex{};
+    inline std::mutex send_mutex{};
 }
 
 #endif
