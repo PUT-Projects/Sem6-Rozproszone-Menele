@@ -1,7 +1,7 @@
 SOURCES=$(wildcard *.cpp)
-HEADERS=$(SOURCES:.cpp=.h)
+HEADERS=$(SOURCES:.cpp=.hpp)
 #FLAGS=-DDEBUG -g
-FLAGS=-g -std=c++17
+FLAGS=-g -std=c++17 -O0
 
 all: build
 
@@ -14,4 +14,4 @@ clean:
 	rm app
 
 run: build Makefile
-	mpirun -oversubscribe -np 8 ./app
+	mpirun -oversubscribe -np 16 ./app
